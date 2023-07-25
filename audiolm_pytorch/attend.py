@@ -8,6 +8,9 @@ from packaging import version
 
 from einops import rearrange
 
+from flash_attn.flash_attn_interface import flash_attn_func
+
+
 # constants
 
 Config = namedtuple('Config', ['enable_flash', 'enable_math', 'enable_mem_efficient'])
@@ -86,12 +89,15 @@ class Attend(nn.Module):
         config = self.cuda_config if is_cuda else self.cpu_config
 
         with torch.backends.cuda.sdp_kernel(**config._asdict()):
-            out = F.scaled_dot_product_attention(
-                q, k, v,
-                attn_mask = mask,
-                dropout_p = self.dropout if self.training else 0., 
-                is_causal = causal
-            )
+            # out = F.scaled_dot_product_attention(
+            #     q, k, v,
+            #     attn_mask = mask,
+            #     dropout_p = self.dropout if self.training else 0., 
+            #     is_causal = causal
+            # )
+            
+            out = flash_attn_func(q, k, v, dropout_p=self.dropout if self.training else 0.,
+                                  causal=causal)
 
         return out
 
