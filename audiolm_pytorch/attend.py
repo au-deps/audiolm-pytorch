@@ -8,8 +8,8 @@ from packaging import version
 
 from einops import rearrange
 
-from flash_attn.flash_attn_interface import flash_attn_func
-
+# from flash_attn.flash_attn_interface import flash_attn_func
+from transformer_engine.pytorch.attention import FlashAttention
 
 # constants
 
@@ -75,6 +75,9 @@ class Attend(nn.Module):
         k = rearrange(k, 'b ... -> b 1 ...').expand_as(q)
         v = rearrange(v, 'b ... -> b 1 ...').expand_as(q)
 
+        # recast as fp:
+        q, k, v = q.to(torch.float16), k.to(torch.float16), v.to(torch.float16)
+
         causal = self.causal
 
         if exists(mask):
@@ -96,8 +99,13 @@ class Attend(nn.Module):
             #     is_causal = causal
             # )
             
-            out = flash_attn_func(q, k, v, dropout_p=self.dropout if self.training else 0.,
-                                  causal=causal)
+            # out = flash_attn_func(q, k, v, dropout_p=self.dropout if self.training else 0.,
+            #                       causal=causal)
+
+            # apply torch_engine version of FlashAtttention:
+            flash_attn = FlashAttention(q.shape[-1] ** 0.5, attention_dropout=self.dropout)
+
+            out = flash_attn(q, k, v)
 
         return out
 
