@@ -348,8 +348,12 @@ class Attention(nn.Module):
         out = self.attend(q, k, v, attn_bias = attn_bias, mask = mask)
 
         # merge heads
+        if out.ndim == 4:
+            out = rearrange(out, 'b h n d -> b n (h d)').to(torch.float)
 
-        out = rearrange(out, 'b h n d -> b n (h d)')
+        else:
+            out = rearrange(out, 'b h (n d) -> b n (h d)', n=n).to(torch.float)
+            
         return self.to_out(out)
 
 # transformer
